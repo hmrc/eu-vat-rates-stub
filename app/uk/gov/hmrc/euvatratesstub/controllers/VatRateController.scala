@@ -26,13 +26,38 @@ import scala.util.Try
 
 @Singleton()
 class VatRateController @Inject()(cc: ControllerComponents)
-    extends BackendController(cc) {
+  extends BackendController(cc) {
+
+  private val responseXml = Try(Source.fromInputStream(getClass.getResourceAsStream("/resources/xml/response.xml")).mkString)
 
   def getEUVatRates: Action[AnyContent] = Action.async { implicit request =>
 
-    val responseXml = Try(Source.fromInputStream(getClass.getResourceAsStream("/resources/xml/response.xml")).mkString)
+    val requestBody = request.body.asXml.get
 
-    Future.successful(Ok(responseXml.get))
+    val requestedCountryCodes = (requestBody \\ "Envelope" \\ "Body" \\ "memberStates").map { memberStateElem =>
+      val isoCodeElem = memberStateElem \ "isoCode"
+
+      isoCodeElem.text
+    }
+
+    val loadXml = scala.xml.XML.loadString(responseXml.get)
+
+    val allRates = (loadXml \\ "Envelope" \\ "Body" \\ "retrieveVatRatesRespMsg" \\ "vatRateResults").filter { vatRateElem =>
+      val memberStateElem = vatRateElem \ "memberState"
+      requestedCountryCodes.contains(memberStateElem.text)
+    }
+
+    val response = <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
+      <env:Header/>
+      <env:Body>
+        <ns0:retrieveVatRatesRespMsg xmlns="urn:ec.europa.eu:taxud:tedb:services:v1:IVatRetrievalService:types" xmlns:ns0="urn:ec.europa.eu:taxud:tedb:services:v1:IVatRetrievalService">
+          <additionalInformation/>
+          {allRates}
+        </ns0:retrieveVatRatesRespMsg>
+      </env:Body>
+    </env:Envelope>
+
+    Future.successful(Ok(response.toString()))
   }
 
 }
