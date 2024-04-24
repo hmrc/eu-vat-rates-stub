@@ -16,19 +16,19 @@
 
 package uk.gov.hmrc.euvatratesstub.controllers
 
-import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 import play.api.mvc.{Action, AnyContent, ControllerComponents}
+import uk.gov.hmrc.euvatratesstub.utils.EuVatRatesXmlService
+import uk.gov.hmrc.play.bootstrap.backend.controller.BackendController
 
 import javax.inject.{Inject, Singleton}
 import scala.concurrent.Future
-import scala.io.Source
-import scala.util.Try
 
 @Singleton()
-class VatRateController @Inject()(cc: ControllerComponents)
+class VatRateController @Inject()(
+                                   cc: ControllerComponents,
+                                   euVatRatesXmlService: EuVatRatesXmlService
+                                 )
   extends BackendController(cc) {
-
-  private val responseXml = Try(Source.fromInputStream(getClass.getResourceAsStream("/resources/xml/response.xml")).mkString)
 
   def getEUVatRates: Action[AnyContent] = Action.async { implicit request =>
 
@@ -40,22 +40,7 @@ class VatRateController @Inject()(cc: ControllerComponents)
       isoCodeElem.text
     }
 
-    val loadXml = scala.xml.XML.loadString(responseXml.get)
-
-    val allRates = (loadXml \\ "Envelope" \\ "Body" \\ "retrieveVatRatesRespMsg" \\ "vatRateResults").filter { vatRateElem =>
-      val memberStateElem = vatRateElem \ "memberState"
-      requestedCountryCodes.contains(memberStateElem.text)
-    }
-
-    val response = <env:Envelope xmlns:env="http://schemas.xmlsoap.org/soap/envelope/">
-      <env:Header/>
-      <env:Body>
-        <ns0:retrieveVatRatesRespMsg xmlns="urn:ec.europa.eu:taxud:tedb:services:v1:IVatRetrievalService:types" xmlns:ns0="urn:ec.europa.eu:taxud:tedb:services:v1:IVatRetrievalService">
-          <additionalInformation/>
-          {allRates}
-        </ns0:retrieveVatRatesRespMsg>
-      </env:Body>
-    </env:Envelope>
+    val response = euVatRatesXmlService.getRatesResponse(requestedCountryCodes)
 
     Future.successful(Ok(response.toString()))
   }
