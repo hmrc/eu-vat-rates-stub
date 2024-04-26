@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-package uk.gov.hmrc.euvatratesstub.config
+package uk.gov.hmrc.euvatratesstub.utils
 
-import javax.inject.{Inject, Singleton}
-import play.api.Configuration
+import scala.concurrent.Future
 
-@Singleton
-class AppConfig @Inject()(config: Configuration) {
+object FutureSyntax {
 
-  val appName: String = config.get[String]("appName")
+  implicit class FutureOps[A](val a: A) extends AnyVal {
+    def toFuture: Future[A] = Future.successful(a)
+  }
 }
