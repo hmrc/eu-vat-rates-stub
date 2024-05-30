@@ -34,10 +34,9 @@ class VatRateController @Inject()(
 
     val requestBody = request.body.asXml.get
 
-    val requestedCountryCodes = (requestBody \\ "Envelope" \\ "Body" \\ "memberStates").map { memberStateElem =>
-      val isoCodeElem = memberStateElem \ "isoCode"
+    val requestedCountryCodes = (requestBody \\ "Envelope" \\ "Body" \\ "memberStates" \\ "isoCode").map { isoCode =>
 
-      isoCodeElem.text
+      isoCode.text
     }
 
     val response = euVatRatesXmlService.getRatesResponse(requestedCountryCodes)
